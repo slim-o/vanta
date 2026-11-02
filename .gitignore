@@ -1,0 +1,11 @@
+Include/
+.venv/
+Lib/
+Scripts/
+pyvenv.cfg
+.env
+data/raw/
+__pycache__/
+*.pyc
+.DS_Store
+data/research.duckdb

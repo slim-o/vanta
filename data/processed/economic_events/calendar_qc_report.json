@@ -1,0 +1,290 @@
+{
+  "currencies_top": [
+    [
+      "USD",
+      21514
+    ],
+    [
+      "EUR",
+      17721
+    ],
+    [
+      "GBP",
+      11221
+    ],
+    [
+      "JPY",
+      7974
+    ],
+    [
+      "AUD",
+      6816
+    ],
+    [
+      "CAD",
+      6032
+    ],
+    [
+      "NZD",
+      4431
+    ],
+    [
+      "CNY",
+      3884
+    ],
+    [
+      "CHF",
+      3157
+    ],
+    [
+      "All",
+      677
+    ]
+  ],
+  "date_parse_errors": [],
+  "duplicate_examples": [
+    {
+      "duplicate_line": 14284,
+      "file": "forex_factory_cache.csv",
+      "first_seen_line": 14282,
+      "key": {
+        "Currency": "EUR",
+        "DateTime": "2010-04-16T00:00:00+04:30",
+        "Event": "Trade Balance"
+      }
+    },
+    {
+      "duplicate_line": 16640,
+      "file": "forex_factory_cache.csv",
+      "first_seen_line": 16639,
+      "key": {
+        "Currency": "USD",
+        "DateTime": "2010-10-27T00:00:00+03:30",
+        "Event": "FOMC Member Dudley Speaks"
+      }
+    },
+    {
+      "duplicate_line": 30850,
+      "file": "forex_factory_cache.csv",
+      "first_seen_line": 30849,
+      "key": {
+        "Currency": "USD",
+        "DateTime": "2013-12-18T00:00:01+03:30",
+        "Event": "Housing Starts"
+      }
+    },
+    {
+      "duplicate_line": 41745,
+      "file": "forex_factory_cache.csv",
+      "first_seen_line": 41744,
+      "key": {
+        "Currency": "CNY",
+        "DateTime": "2016-05-24T00:00:01+04:30",
+        "Event": "CB Leading Index m/m"
+      }
+    },
+    {
+      "duplicate_line": 41746,
+      "file": "forex_factory_cache.csv",
+      "first_seen_line": 41744,
+      "key": {
+        "Currency": "CNY",
+        "DateTime": "2016-05-24T00:00:01+04:30",
+        "Event": "CB Leading Index m/m"
+      }
+    },
+    {
+      "duplicate_line": 41747,
+      "file": "forex_factory_cache.csv",
+      "first_seen_line": 41744,
+      "key": {
+        "Currency": "CNY",
+        "DateTime": "2016-05-24T00:00:01+04:30",
+        "Event": "CB Leading Index m/m"
+      }
+    },
+    {
+      "duplicate_line": 65466,
+      "file": "forex_factory_cache.csv",
+      "first_seen_line": 65461,
+      "key": {
+        "Currency": "GBP",
+        "DateTime": "2021-07-01T00:00:00+04:30",
+        "Event": "BOE Gov Bailey Speaks"
+      }
+    },
+    {
+      "duplicate_line": 67463,
+      "file": "forex_factory_cache.csv",
+      "first_seen_line": 67462,
+      "key": {
+        "Currency": "USD",
+        "DateTime": "2021-12-02T00:00:00+03:30",
+        "Event": "FOMC Member Bostic Speaks"
+      }
+    },
+    {
+      "duplicate_line": 70129,
+      "file": "forex_factory_cache.csv",
+      "first_seen_line": 70128,
+      "key": {
+        "Currency": "USD",
+        "DateTime": "2022-06-29T00:00:00+04:30",
+        "Event": "Crude Oil Inventories"
+      }
+    },
+    {
+      "duplicate_line": 76675,
+      "file": "forex_factory_cache.csv",
+      "first_seen_line": 76674,
+      "key": {
+        "Currency": "USD",
+        "DateTime": "2023-11-16T00:00:00+03:30",
+        "Event": "Natural Gas Storage"
+      }
+    },
+    {
+      "duplicate_line": 80994,
+      "file": "forex_factory_cache.csv",
+      "first_seen_line": 80993,
+      "key": {
+        "Currency": "EUR",
+        "DateTime": "2024-10-10T00:00:01+03:30",
+        "Event": "German Retail Sales m/m"
+      }
+    },
+    {
+      "duplicate_line": 80995,
+      "file": "forex_factory_cache.csv",
+      "first_seen_line": 80993,
+      "key": {
+        "Currency": "EUR",
+        "DateTime": "2024-10-10T00:00:01+03:30",
+        "Event": "German Retail Sales m/m"
+      }
+    }
+  ],
+  "duplicate_rows": 12,
+  "filtered_rows": 4027,
+  "generated_utc": "2026-11-02T14:04:59.832698+00:00",
+  "impact_prefix": "High",
+  "impact_values": [
+    [
+      "Low Impact Expected",
+      40005
+    ],
+    [
+      "Medium Impact Expected",
+      23180
+    ],
+    [
+      "High Impact Expected",
+      17842
+    ],
+    [
+      "Non-Economic",
+      2400
+    ]
+  ],
+  "min_date_utc": "2020-01-01",
+  "missing_fields": [],
+  "outputs": {
+    "filtered_extract": "data/processed/economic_events/economic_calendar_2020_high_impact.csv",
+    "qc_report": "data/processed/economic_events/calendar_qc_report.json",
+    "raw_manifest": "data/raw/economic_calendar/source_manifest.json"
+  },
+  "total_rows": 83427,
+  "unique_currencies": 10,
+  "value_examples": {
+    "magnitude_suffix": [
+      "-0.3K",
+      "30.3K",
+      "-96K",
+      "-110K",
+      "-90K",
+      "-40K",
+      "120K",
+      "230K",
+      "16.7M",
+      "16.5M",
+      "16.1M",
+      "129K",
+      "128K",
+      "10.9B",
+      "11.0B",
+      "10.8B",
+      "329K",
+      "318K",
+      "317K",
+      "-785M",
+      "-976M",
+      "-1174M",
+      "-1.3M",
+      "-2.0M",
+      "-8.1M"
+    ],
+    "other_non_numeric": [
+      "No",
+      "Reject",
+      "Pass",
+      "Yes",
+      "Leave"
+    ],
+    "percent": [
+      "11.0%",
+      "13.9%",
+      "-0.2%",
+      "-0.6%",
+      "-1.0%",
+      "0.1%",
+      "0.2%",
+      "-49.3%",
+      "-22.7%",
+      "0.0%",
+      "0.5%",
+      "-0.1%",
+      "0.9%",
+      "1.5%",
+      "-4.5%",
+      "-0.5%",
+      "-1.5%",
+      "1.9%",
+      "1.0%",
+      "-2.8%",
+      "7.6%",
+      "7.7%",
+      "0.3%",
+      "6.1%",
+      "6.3%"
+    ],
+    "thousands_sep": []
+  },
+  "value_nonempty": [
+    [
+      "Actual",
+      67039
+    ],
+    [
+      "Previous",
+      67001
+    ],
+    [
+      "Forecast",
+      54678
+    ]
+  ],
+  "value_patterns": [
+    [
+      "percent",
+      105421
+    ],
+    [
+      "magnitude_suffix",
+      34927
+    ],
+    [
+      "other_non_numeric",
+      57
+    ]
+  ]
+}
