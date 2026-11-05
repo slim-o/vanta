@@ -4,8 +4,10 @@ Lib/
 Scripts/
 pyvenv.cfg
 .env
+.env.*
 data/raw/
 __pycache__/
 *.pyc
 .DS_Store
 data/research.duckdb
+data/vanta.sqlite

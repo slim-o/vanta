@@ -1,0 +1,36 @@
+{
+  "calendar_run_id": 2,
+  "events_end": "2020-12-31",
+  "events_seen": 3902,
+  "events_start": "2020-01-01",
+  "generated_utc": "2026-11-05T12:44:21.593867+00:00",
+  "missing_counts": [
+    [
+      "event_after_range",
+      3196
+    ],
+    [
+      "no_matching_symbol",
+      66
+    ]
+  ],
+  "out": "data/processed/research/event_reactions_m1.csv",
+  "prices_root": "data/processed/price_data",
+  "ret_horizons_min": [
+    1,
+    5,
+    15,
+    30,
+    60,
+    240
+  ],
+  "rows_written": 1664,
+  "source_db": "data/vanta.sqlite",
+  "symbols_used": [
+    "EURUSD",
+    "USDJPY",
+    "GBPUSD",
+    "AUDUSD",
+    "USDCAD"
+  ]
+}

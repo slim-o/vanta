@@ -44,6 +44,11 @@ Important limitation: a historical calendar snapshot does not necessarily show w
 - [ ] Add normalised numeric values and units where possible.
 - [ ] Support multiple observations of the same event over time.
 
+Notes (defer until more relevant)
+- DuckDB is useful once we start ingesting candle data (Phase 3/4). We can defer installing/using DuckDB until we have chosen a price provider and storage format.
+- Calendar records can contain duplicates and revisions. Ingestion should preserve every raw source row for provenance, but we can de-duplicate observations deterministically during import. The exact event identity rules (and how to treat duplicates) should be revisited in Phase 4 when we match events to price reactions.
+- Project scope starts with the 8 major currencies (USD, EUR, GBP, JPY, AUD, NZD, CAD, CHF). We can exclude CNY at first and consider adding it later.
+
 ### Phase 3: Acquire historical FX candle data
 
 - [ ] Decide which currency pairs to include.
@@ -125,6 +130,8 @@ This comes later, once the candle-based research identifies strategies worth inv
 - [ ] Compare tick-based results with candle-based results.
 
 ### Recommended project structure
+
+``
 forex-research/
 │
 ├── data/
@@ -162,7 +169,7 @@ forex-research/
 ├── config.py
 ├── requirements.txt
 └── README.md
-
+``
 
 Completion criteria
 We should treat each phase as a milestone rather than rushing through the checklist.
