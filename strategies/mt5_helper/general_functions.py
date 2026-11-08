@@ -1,4 +1,5 @@
-import os
+﻿import os
+import re
 import time
 from datetime import datetime, timezone
 from typing import Optional, Tuple
@@ -7,6 +8,24 @@ import MetaTrader5 as mt5
 
 class MaxRetriesExceeded(Exception):
     pass
+
+
+def sanitize_mt5_comment(comment: Optional[str], *, max_len: int = 31) -> str:
+    """Return a broker-safe MT5 order comment.
+
+    Many brokers enforce a short comment limit (commonly 31 chars) and reject
+    non-printable / non-ASCII characters.
+    """
+
+    if comment is None:
+        return ""
+    text = str(comment)
+    # Keep printable ASCII only.
+    text = "".join(ch for ch in text if 32 <= ord(ch) <= 126)
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) > max_len:
+        text = text[:max_len]
+    return text
 
 def _env(name: str) -> Optional[str]:
     value = os.environ.get(name, "").strip()
@@ -126,7 +145,8 @@ def place_straddle_pending_orders(
     buy_sl = round_price(symbol, buy_price - sl_pips * pip)
     buy_tp = round_price(symbol, buy_price + tp_pips * pip)
     sell_sl = round_price(symbol, sell_price + sl_pips * pip)
-    sell_tp = round_price(symbol, sell_price - tp_pips * pip)
+    sell_tp = round_price(symbol, sell_price - tp_pips * pip)
+    safe_comment = sanitize_mt5_comment(comment)
 
     common = {
         "action": mt5.TRADE_ACTION_PENDING,
@@ -134,7 +154,7 @@ def place_straddle_pending_orders(
         "volume": float(lot),
         "deviation": 50,
         "magic": int(magic),
-        "comment": comment,
+        "comment": safe_comment,
         "type_time": mt5.ORDER_TIME_GTC,
         "type_filling": mt5.ORDER_FILLING_RETURN,
     }
@@ -251,3 +271,9 @@ def calc_lot_from_risk(
     if lot < vol_min:
         lot = vol_min
     return float(lot)
+
+
+
+
+
+

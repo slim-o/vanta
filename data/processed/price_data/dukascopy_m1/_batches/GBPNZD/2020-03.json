@@ -1,0 +1,26 @@
+{
+  "complete": false,
+  "completed_utc": "2026-11-08T00:14:42.023628+00:00",
+  "download_prices_args": {
+    "backoff": 2.0,
+    "http_concurrency": 1,
+    "max_backoff": 180.0,
+    "max_retries": 12,
+    "sleep": 0.1,
+    "timeout": 120,
+    "user_agent": null,
+    "workers": 4
+  },
+  "end": "2020-03-31",
+  "failed_jobs": [
+    {
+      "date": "2020-03-14",
+      "error": "HTTPError: HTTP Error 503: Service Unavailable",
+      "symbol": "GBPNZD"
+    }
+  ],
+  "processed_root": "data/processed/price_data",
+  "raw_root": "data/raw/price_data",
+  "start": "2020-03-01",
+  "symbol": "GBPNZD"
+}

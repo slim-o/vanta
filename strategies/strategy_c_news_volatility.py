@@ -1,4 +1,4 @@
-"""Strategy C: Bidirectional news-volatility trading (live/paper via MT5).
+﻿"""Strategy C: Bidirectional news-volatility trading (live/paper via MT5).
 
 This is a minimal live runner:
 - Pulls this week's schedule from Forex Factory's public weekly JSON export.
@@ -52,6 +52,15 @@ def currencies_from_symbols(symbols: List[str]) -> Set[str]:
             out.add(sym[3:])
     return out
 
+
+def symbol_currencies(symbol: str) -> Set[str]:
+    # MT5 brokers sometimes add suffixes like EURUSD.a / EURUSDm.
+    letters = "".join(ch for ch in symbol.upper() if ch.isalpha())
+    if len(letters) < 6:
+        return set()
+    base = letters[:3]
+    quote = letters[3:6]
+    return {base, quote}
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Live Strategy C runner (MT5 pending-order straddle)")
@@ -123,6 +132,8 @@ def main() -> int:
     else:
         currencies = currencies_from_symbols(symbols) or set(DEFAULT_CURRENCIES)
 
+
+    print("Watching currencies: " + ", ".join(sorted(currencies)))
     all_events = fetch_thisweek_events()
     start = utc_now()
     end = start + dt.timedelta(hours=float(args.window_hours))
@@ -160,6 +171,8 @@ def main() -> int:
 
             # Place straddles on requested symbols; this is intentionally naive.
             for sym in symbols:
+                if e.country.upper() not in symbol_currencies(sym):
+                    continue
                 try:
                     rng = recent_range_pips(sym, lookback_minutes=int(args.lookback_minutes))
                     dist = max(float(args.min_distance_pips), float(rng) * float(args.distance_mult))
@@ -180,7 +193,7 @@ def main() -> int:
                         sl_pips=float(args.sl_pips),
                         tp_pips=float(args.tp_pips),
                         magic=int(args.magic),
-                        comment=f"VANTA_StrategyC {e.country} {e.title}",
+                        comment=f"VANTA C {e.country} {e.scheduled_at_utc:%m%d%H%M}",
                     )
                     print(
                         f"Placed {sym} straddle for {e.country} {e.title} at {now.isoformat()} lot={lot} dist={dist:.1f}pips "
@@ -196,4 +209,6 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
 
