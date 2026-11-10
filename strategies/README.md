@@ -1,4 +1,4 @@
-# Strategies
+﻿# Strategies
 
 This folder contains live/demo strategy runners (MT5) and supporting utilities.
 
@@ -35,7 +35,7 @@ Prepares a buy-stop and sell-stop far away from price. Default is **dry-run**.
 File: `strategies/strategy_c_news_volatility.py`
 
 ### What it does
-- Pulls this week’s schedule from Forex Factory’s public weekly JSON export.
+- Pulls this week's schedule from Forex Factory's public weekly JSON export.
 - Filters to upcoming events in the next `--window-hours` (default 24h).
 - Filters by impact via `--impact` (default `High`).
 - For each event, places **two pending orders** on your chosen MT5 symbol(s):
@@ -68,5 +68,14 @@ Risk-based sizing computes lot size from your account balance/equity and `--sl-p
 
 ### Important limitations (current version)
 - This runner places the straddle but does not yet manage the lifecycle (e.g. cancel the opposite order after one triggers, time-based cleanup, etc.).
-- It uses Forex Factory’s weekly export for schedule/impact/forecast/previous, but it does **not** provide released actual values.
+- It uses Forex Factory's weekly export for schedule/impact/forecast/previous, but it does **not** provide released actual values.
+
+
+### Entry testing (recommended before live news)
+Run a safe test that places a straddle soon and then cancels it.
+
+- Dry run (no orders sent):
+  - py strategies/strategy_c_news_volatility.py --symbols EURUSD --risk-pct 0.25 --sl-pips 20 --risk-base balance --test-entry --dry-run
+- Armed (places pending orders, waits ~15s, then cancels):
+  - py strategies/strategy_c_news_volatility.py --symbols EURUSD --risk-pct 0.25 --sl-pips 20 --risk-base balance --test-entry --test-hold-seconds 15
 

@@ -18,9 +18,10 @@ import os
 import time
 from typing import List, Set
 
-from event_sources.forex_factory_weekly import fetch_thisweek_events, filter_events
+from event_sources.forex_factory_weekly import ForexFactoryEvent, fetch_thisweek_events, filter_events
 from mt5_helper.general_functions import (
     calc_lot_from_risk,
+    cancel_orders_by_magic,
     place_straddle_pending_orders,
     recent_range_pips,
     retryable_initialize,
@@ -114,6 +115,9 @@ def main() -> int:
         default=24.0,
         help="Only schedule events in the next N hours",
     )
+    parser.add_argument("--dry-run", action="store_true", help="Log actions without sending orders to MT5")
+    parser.add_argument("--test-entry", action="store_true", help="Place an immediate test straddle then exit")
+    parser.add_argument("--test-hold-seconds", type=int, default=15, help="In --test-entry, wait then cancel pending orders")
     args = parser.parse_args()
 
     loaded = load_dotenv()
@@ -134,16 +138,40 @@ def main() -> int:
 
 
     print("Watching currencies: " + ", ".join(sorted(currencies)))
-    all_events = fetch_thisweek_events()
     start = utc_now()
     end = start + dt.timedelta(hours=float(args.window_hours))
-    events = filter_events(
-        all_events,
-        currencies=currencies,
-        impacts={args.impact},
-        start_utc=start,
-        end_utc=end,
-    )
+
+    if args.test_entry:
+        test_country = None
+        for c in ("USD", "EUR", "GBP", "JPY", "AUD", "NZD", "CAD", "CHF"):
+            if c in currencies:
+                test_country = c
+                break
+        if test_country is None:
+            test_country = next(iter(currencies)) if currencies else "USD"
+
+        test_time = utc_now() + dt.timedelta(seconds=max(5, int(args.lead_seconds)))
+        events = [
+            ForexFactoryEvent(
+                title="TEST Entry",
+                country=test_country,
+                scheduled_at_utc=test_time,
+                impact=str(args.impact),
+                forecast="",
+                previous="",
+            )
+        ]
+        end = test_time + dt.timedelta(seconds=int(args.test_hold_seconds) + 30)
+        print(f"TEST MODE: will place straddle for {test_country} at {test_time.isoformat()}")
+    else:
+        all_events = fetch_thisweek_events()
+        events = filter_events(
+            all_events,
+            currencies=currencies,
+            impacts={args.impact},
+            start_utc=start,
+            end_utc=end,
+        )
 
     if not events:
         print("No upcoming events found in window.")
@@ -186,6 +214,12 @@ def main() -> int:
                             use_equity=(args.risk_base == "equity"),
                         )
 
+                    if args.dry_run:
+                        print(
+                            f"DRY RUN: would place {sym} straddle for {e.country} {e.title} lot={lot} dist={dist:.1f}pips sl={args.sl_pips} tp={args.tp_pips}"
+                        )
+                        continue
+
                     buy_ticket, sell_ticket = place_straddle_pending_orders(
                         symbol=sym,
                         lot=lot,
@@ -204,11 +238,29 @@ def main() -> int:
 
             traded_keys.add(key)
 
+            if args.test_entry:
+                if args.dry_run:
+                    print("Dry-run test complete.")
+                    return 0
+
+                hold_s = int(args.test_hold_seconds)
+                print(f"Holding for {hold_s}s then cancelling pending orders (magic={int(args.magic)})")
+                time.sleep(hold_s)
+                for sym in symbols:
+                    cancelled = cancel_orders_by_magic(magic=int(args.magic), symbol=sym)
+                    if cancelled:
+                        print(f"Cancelled {cancelled} pending orders for {sym}")
+                return 0
+
         time.sleep(float(args.poll_seconds))
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+
+
 
 
 
