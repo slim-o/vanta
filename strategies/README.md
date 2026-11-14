@@ -54,6 +54,10 @@ File: `strategies/strategy_c_news_volatility.py`
 - `--min-distance-pips` Minimum pending distance.
 - `--sl-pips` Stop-loss distance in pips.
 - `--tp-pips` Take-profit distance in pips.
+- `--cancel-pending-after-minutes` Cancel any remaining pending orders N minutes after event time.
+- `--no-oco` Disable cancel-opposite behavior (OCO is on by default).
+- `--close-position-after-minutes` Optional: close open positions N minutes after event time (0 disables).
+- `--shared-magic` Use the same magic number for all events (default adds a per-event offset).
 
 ### Risk sizing
 You can use either:
@@ -65,9 +69,16 @@ Risk-based sizing computes lot size from your account balance/equity and `--sl-p
 ### Example run
 
 - `py strategies/strategy_c_news_volatility.py --symbols EURUSD --risk-pct 0.25 --sl-pips 20 --risk-base balance`
+### GUI runner
+A quick Tkinter GUI that runs Strategy C and shows live logs.
+
+- `py strategies/gui_strategy_c.py`
+- Select pairs in the listbox (multi-select) and/or add custom symbols.
+- Optional: set a currencies override if you want to trade only specific event currencies.
+
 
 ### Important limitations (current version)
-- This runner places the straddle but does not yet manage the lifecycle (e.g. cancel the opposite order after one triggers, time-based cleanup, etc.).
+- Lifecycle management included: OCO cancel-opposite after fill, and pending-order timeout after event time. Optional time-based position close is available (off by default).
 - It uses Forex Factory's weekly export for schedule/impact/forecast/previous, but it does **not** provide released actual values.
 
 
@@ -78,4 +89,5 @@ Run a safe test that places a straddle soon and then cancels it.
   - py strategies/strategy_c_news_volatility.py --symbols EURUSD --risk-pct 0.25 --sl-pips 20 --risk-base balance --test-entry --dry-run
 - Armed (places pending orders, waits ~15s, then cancels):
   - py strategies/strategy_c_news_volatility.py --symbols EURUSD --risk-pct 0.25 --sl-pips 20 --risk-base balance --test-entry --test-hold-seconds 15
+
 

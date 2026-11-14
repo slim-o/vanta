@@ -2,7 +2,7 @@
 import re
 import time
 from datetime import datetime, timezone
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import MetaTrader5 as mt5
 
@@ -210,6 +210,73 @@ def cancel_order(ticket: int) -> bool:
     return res.retcode == mt5.TRADE_RETCODE_DONE
 
 
+
+def open_positions(*, symbol: Optional[str] = None, magic: Optional[int] = None):
+    """Return open positions filtered by symbol/magic."""
+    positions = mt5.positions_get()
+    if positions is None:
+        return []
+    out = []
+    for p in positions:
+        if symbol and str(getattr(p, "symbol", "")) != symbol:
+            continue
+        if magic is not None and int(getattr(p, "magic", 0)) != int(magic):
+            continue
+        out.append(p)
+    return out
+
+
+def close_position(ticket: int, *, deviation: int = 50) -> bool:
+    """Close a position at market by position ticket."""
+    pos = None
+    for p in open_positions():
+        if int(getattr(p, "ticket", 0)) == int(ticket):
+            pos = p
+            break
+    if pos is None:
+        return False
+
+    symbol = str(getattr(pos, "symbol", ""))
+    volume = float(getattr(pos, "volume", 0.0) or 0.0)
+    if not symbol or volume <= 0:
+        raise RuntimeError(f"Invalid position for close: {pos}")
+
+    bid, ask = get_bid_ask(symbol)
+    pos_type = int(getattr(pos, "type", 0))
+    if pos_type == mt5.POSITION_TYPE_BUY:
+        order_type = mt5.ORDER_TYPE_SELL
+        price = bid
+    else:
+        order_type = mt5.ORDER_TYPE_BUY
+        price = ask
+
+    req = {
+        "action": mt5.TRADE_ACTION_DEAL,
+        "symbol": symbol,
+        "position": int(ticket),
+        "volume": float(volume),
+        "type": int(order_type),
+        "price": float(price),
+        "deviation": int(deviation),
+        "magic": int(getattr(pos, "magic", 0) or 0),
+        "comment": sanitize_mt5_comment("VANTA close"),
+        "type_filling": mt5.ORDER_FILLING_RETURN,
+    }
+    res = mt5.order_send(req)
+    if res is None:
+        raise RuntimeError(f"Close position returned None: {mt5.last_error()}")
+    return res.retcode == mt5.TRADE_RETCODE_DONE
+
+
+def close_positions_by_magic(*, magic: int, symbol: Optional[str] = None) -> int:
+    """Close all open positions matching magic (and optional symbol)."""
+    positions = open_positions(symbol=symbol, magic=magic)
+    closed = 0
+    for p in positions:
+        if close_position(int(getattr(p, "ticket", 0))):
+            closed += 1
+    return closed
+
 def cancel_orders_by_magic(*, magic: int, symbol: Optional[str] = None) -> int:
     """Cancel all pending orders matching magic (and optional symbol)."""
     orders = pending_orders(symbol=symbol, magic=magic)
@@ -271,6 +338,8 @@ def calc_lot_from_risk(
     if lot < vol_min:
         lot = vol_min
     return float(lot)
+
+
 
 
 

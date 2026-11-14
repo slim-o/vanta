@@ -6,8 +6,10 @@ This is a minimal live runner:
 - For each event, places a straddle of pending orders (buy-stop & sell-stop)
   a configurable number of seconds before the release.
 
-It is intentionally conservative: it places orders but does not attempt to
-manage them after entry (cancel opposite, trail stops, etc.).
+It places a pending-order straddle and performs basic lifecycle management:
+- OCO: cancel the opposite pending order once one side triggers
+- Pending timeout: cancel any remaining pending orders after the event
+Optional: time-based position close (disabled by default).
 """
 
 from __future__ import annotations
@@ -16,12 +18,17 @@ import argparse
 import datetime as dt
 import os
 import time
+
+import MetaTrader5 as mt5
 from typing import List, Set
 
 from event_sources.forex_factory_weekly import ForexFactoryEvent, fetch_thisweek_events, filter_events
 from mt5_helper.general_functions import (
     calc_lot_from_risk,
+    cancel_order,
     cancel_orders_by_magic,
+    close_positions_by_magic,
+    open_positions,
     place_straddle_pending_orders,
     recent_range_pips,
     retryable_initialize,
@@ -118,6 +125,10 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="Log actions without sending orders to MT5")
     parser.add_argument("--test-entry", action="store_true", help="Place an immediate test straddle then exit")
     parser.add_argument("--test-hold-seconds", type=int, default=15, help="In --test-entry, wait then cancel pending orders")
+    parser.add_argument("--shared-magic", action="store_true", help="Use the same --magic for all events (default adds per-event offset)")
+    parser.add_argument("--no-oco", action="store_true", help="Disable cancel-opposite (OCO) behavior")
+    parser.add_argument("--cancel-pending-after-minutes", type=float, default=3.0, help="Cancel any remaining pending orders this many minutes after event time")
+    parser.add_argument("--close-position-after-minutes", type=float, default=0.0, help="Optional: close open positions this many minutes after event time (0 disables)")
     args = parser.parse_args()
 
     loaded = load_dotenv()
@@ -182,6 +193,7 @@ def main() -> int:
         print(f"- {e.scheduled_at_utc.isoformat()} {e.country} {e.impact}: {e.title}")
 
     traded_keys = set()
+    active_straddles = []  # per-symbol/event lifecycle state
     while True:
         now = utc_now()
         if now > end:
@@ -196,6 +208,12 @@ def main() -> int:
             fire_at = e.scheduled_at_utc - dt.timedelta(seconds=int(args.lead_seconds))
             if now < fire_at:
                 continue
+
+            event_magic = int(args.magic)
+            if not args.shared_magic:
+                event_magic = int(event_magic) + int(e.scheduled_at_utc.strftime("%m%d%H%M"))
+            placed_pairs = []  # (sym, magic, buy_ticket, sell_ticket)
+
 
             # Place straddles on requested symbols; this is intentionally naive.
             for sym in symbols:
@@ -226,12 +244,28 @@ def main() -> int:
                         distance_pips=float(dist),
                         sl_pips=float(args.sl_pips),
                         tp_pips=float(args.tp_pips),
-                        magic=int(args.magic),
+                        magic=int(event_magic),
                         comment=f"VANTA C {e.country} {e.scheduled_at_utc:%m%d%H%M}",
                     )
                     print(
                         f"Placed {sym} straddle for {e.country} {e.title} at {now.isoformat()} lot={lot} dist={dist:.1f}pips "
                         f"tickets=({buy_ticket},{sell_ticket})"
+                    )
+                    placed_pairs.append((sym, int(event_magic), int(buy_ticket), int(sell_ticket)))
+
+                    active_straddles.append(
+                        {
+                            "symbol": sym,
+                            "magic": int(event_magic),
+                            "buy_ticket": int(buy_ticket),
+                            "sell_ticket": int(sell_ticket),
+                            "scheduled_at": e.scheduled_at_utc,
+                            "pending_cancel_at": e.scheduled_at_utc + dt.timedelta(minutes=float(args.cancel_pending_after_minutes)),
+                            "close_at": e.scheduled_at_utc + dt.timedelta(minutes=float(args.close_position_after_minutes)),
+                            "oco_done": False,
+                            "pending_cancel_done": False,
+                            "positions_close_done": False,
+                        }
                     )
                 except Exception as ex:  # noqa: BLE001
                     print(f"Failed placing straddle for {sym} {e.country} {e.title}: {ex}")
@@ -244,19 +278,75 @@ def main() -> int:
                     return 0
 
                 hold_s = int(args.test_hold_seconds)
-                print(f"Holding for {hold_s}s then cancelling pending orders (magic={int(args.magic)})")
+                print(f"Holding for {hold_s}s then cancelling pending orders")
                 time.sleep(hold_s)
-                for sym in symbols:
-                    cancelled = cancel_orders_by_magic(magic=int(args.magic), symbol=sym)
-                    if cancelled:
-                        print(f"Cancelled {cancelled} pending orders for {sym}")
+                for sym, magic, buy_t, sell_t in placed_pairs:
+                    for t in (buy_t, sell_t):
+                        try:
+                            if cancel_order(int(t)):
+                                print(f"Cancelled pending order {t} for {sym} (magic={magic})")
+                        except Exception as ex:  # noqa: BLE001
+                            print(f"Cancel failed for {sym} ticket={t}: {ex}")
                 return 0
+
+        # Lifecycle management: OCO + timeouts
+        if active_straddles and not args.dry_run:
+            for s in list(active_straddles):
+                sym = str(s["symbol"])
+                magic = int(s["magic"])
+
+                if (not args.no_oco) and (not s["oco_done"]):
+                    positions = open_positions(symbol=sym, magic=magic)
+                    if positions:
+                        pos_type = int(getattr(positions[0], "type", 0))
+                        try:
+                            if pos_type == mt5.POSITION_TYPE_BUY:
+                                cancel_order(int(s["sell_ticket"]))
+                                print(f"OCO: cancelled sell-stop for {sym} (magic={magic})")
+                            elif pos_type == mt5.POSITION_TYPE_SELL:
+                                cancel_order(int(s["buy_ticket"]))
+                                print(f"OCO: cancelled buy-stop for {sym} (magic={magic})")
+                            s["oco_done"] = True
+                        except Exception as ex:  # noqa: BLE001
+                            print(f"OCO cancel failed for {sym} (magic={magic}): {ex}")
+
+                cancel_m = float(args.cancel_pending_after_minutes)
+                if cancel_m > 0 and (not s["pending_cancel_done"]) and now >= s["pending_cancel_at"]:
+                    for t in (s["buy_ticket"], s["sell_ticket"]):
+                        try:
+                            cancel_order(int(t))
+                        except Exception:
+                            pass
+                    s["pending_cancel_done"] = True
+                    print(f"Pending timeout: cancelled remaining orders for {sym} (magic={magic})")
+
+                close_m = float(args.close_position_after_minutes)
+                if close_m > 0 and (not s["positions_close_done"]) and now >= s["close_at"]:
+                    try:
+                        closed = close_positions_by_magic(magic=magic, symbol=sym)
+                        if closed:
+                            print(f"Position timeout: closed {closed} position(s) for {sym} (magic={magic})")
+                        s["positions_close_done"] = True
+                    except Exception as ex:  # noqa: BLE001
+                        print(f"Position timeout close failed for {sym} (magic={magic}): {ex}")
+                        s["positions_close_done"] = True
+
+                if s["pending_cancel_done"] and (close_m <= 0 or s["positions_close_done"]):
+                    active_straddles.remove(s)
 
         time.sleep(float(args.poll_seconds))
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+
+
+
+
+
+
 
 
 

@@ -1,4 +1,4 @@
-# VANTA
+﻿# VANTA
 ### Independent Research & Development Project
 
 ## Short description
@@ -101,6 +101,7 @@ This is where the calendar and price data become useful together.
 - [ ] Test simultaneous long and short entries.
 - [ ] Test pending buy-stop and sell-stop orders.
 - [ ] Test different entry distances and stop-loss levels.
+- [ ] (Later) Use the historical event-reaction dataset to tune: entry distance, pending-order expiry, and max-hold time (instead of hard-coded minutes).
 - [ ] Account for spread widening, slippage and commissions.
 - [ ] Compare performance across event types and currency pairs.
 
@@ -133,42 +134,42 @@ This comes later, once the candle-based research identifies strategies worth inv
 
 ``
 forex-research/
-│
-├── data/
-│   ├── raw/
-│   │   ├── economic_calendar/
-│   │   └── price_data/
-│   ├── processed/
-│   │   ├── economic_events/
-│   │   └── price_data/
-│   └── research.duckdb
-│
-├── database/
-│   └── schema.sql
-│
-├── scripts/
-│   ├── inspect_calendar.py
-│   ├── import_calendar.py
-│   ├── download_prices.py
-│   ├── clean_prices.py
-│   ├── build_event_dataset.py
-│   └── validate_dataset.py
-│
-├── strategies/
-│   ├── strategy_a_surprise.py
-│   ├── strategy_b_macro_model.py
-│   └── strategy_c_news_volatility.py
-│
-├── backtesting/
-│   ├── engine.py
-│   ├── execution.py
-│   └── metrics.py
-│
-├── notebooks/
-│
-├── config.py
-├── requirements.txt
-└── README.md
+â”‚
+â”œâ”€â”€ data/
+â”‚   â”œâ”€â”€ raw/
+â”‚   â”‚   â”œâ”€â”€ economic_calendar/
+â”‚   â”‚   â””â”€â”€ price_data/
+â”‚   â”œâ”€â”€ processed/
+â”‚   â”‚   â”œâ”€â”€ economic_events/
+â”‚   â”‚   â””â”€â”€ price_data/
+â”‚   â””â”€â”€ research.duckdb
+â”‚
+â”œâ”€â”€ database/
+â”‚   â””â”€â”€ schema.sql
+â”‚
+â”œâ”€â”€ scripts/
+â”‚   â”œâ”€â”€ inspect_calendar.py
+â”‚   â”œâ”€â”€ import_calendar.py
+â”‚   â”œâ”€â”€ download_prices.py
+â”‚   â”œâ”€â”€ clean_prices.py
+â”‚   â”œâ”€â”€ build_event_dataset.py
+â”‚   â””â”€â”€ validate_dataset.py
+â”‚
+â”œâ”€â”€ strategies/
+â”‚   â”œâ”€â”€ strategy_a_surprise.py
+â”‚   â”œâ”€â”€ strategy_b_macro_model.py
+â”‚   â””â”€â”€ strategy_c_news_volatility.py
+â”‚
+â”œâ”€â”€ backtesting/
+â”‚   â”œâ”€â”€ engine.py
+â”‚   â”œâ”€â”€ execution.py
+â”‚   â””â”€â”€ metrics.py
+â”‚
+â”œâ”€â”€ notebooks/
+â”‚
+â”œâ”€â”€ config.py
+â”œâ”€â”€ requirements.txt
+â””â”€â”€ README.md
 ``
 
 Completion criteria

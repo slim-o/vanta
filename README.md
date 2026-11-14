@@ -1,4 +1,4 @@
-# VANTA
+﻿# VANTA
 
 Research platform for studying how macroeconomic information impacts FX markets and for developing systematic event-driven strategies.
 
@@ -56,11 +56,26 @@ QC (optional):
 
 ## Phase 4 (research dataset)
 
-Build an event↔price reaction dataset from the SQLite calendar + downloaded candles:
+Build an eventâ†”price reaction dataset from the SQLite calendar + downloaded candles:
 - `& "C:\Users\ikema\AppData\Local\Programs\Python\Python310\python.exe" "helper scripts\build_event_dataset.py" --symbols EURUSD USDJPY GBPUSD AUDUSD USDCAD --events-start 2020-01-01 --events-end 2020-12-31`
 
 Validate missing-rate stats:
 - `& "C:\Users\ikema\AppData\Local\Programs\Python\Python310\python.exe" "helper scripts\validate_dataset.py"`
+
+## Tick impulse analysis (experimental)
+
+Measure the first-direction post-event impulse using Dukascopy tick data (daily `.bi5`).
+This is intended to help tune Strategy C parameters (distance/expiry) based on typical one-way moves.
+
+Example (start small):
+- `& "C:\Users\ikema\AppData\Local\Programs\Python\Python310\python.exe" "helper scripts\analyze_event_impulse_ticks.py" --symbols EURUSD --events-start 2020-01-01 --events-end 2020-12-31 --max-rows 100`
+
+Outputs:
+- `data/processed/research/impulse_ticks_per_event.csv`
+- `data/processed/research/impulse_ticks_summary.json`
+
+Notes:
+- Downloads tick files into `data/raw/price_data/dukascopy_ticks/` (ignored by git).
 
 ## Live / demo (MT5)
 
