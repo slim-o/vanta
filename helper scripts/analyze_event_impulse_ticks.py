@@ -401,7 +401,13 @@ def main() -> int:
     p.add_argument("--max-rows", type=int, default=0, help="Limit number of input rows (0=all)")
     p.add_argument("--out-per-event", default="data/processed/research/impulse_ticks_per_event.csv")
     p.add_argument("--out-summary", default="data/processed/research/impulse_ticks_summary.json")
+    p.add_argument("--quiet", action="store_true", help="Reduce console output")
     args = p.parse_args()
+
+    def log(msg: str) -> None:
+        if not args.quiet:
+            print(msg, flush=True)
+
 
     input_csv = Path(str(args.input))
     raw_root = Path(str(args.raw_root))
@@ -428,19 +434,28 @@ def main() -> int:
         g = (k.symbol, k.scheduled_at_utc.date())
         by_group.setdefault(g, []).append(k)
 
+    groups = sorted(by_group.items(), key=lambda x: (x[0][0], x[0][1]))
+    log(f"Loaded {len(keys)} event rows -> {len(groups)} (symbol, day) groups")
+
     out_rows: List[Dict[str, object]] = []
     missing_files = 0
 
-    for (sym, day), group in sorted(by_group.items(), key=lambda x: (x[0][0], x[0][1])):
+    for gi, ((sym, day), group) in enumerate(groups, start=1):
         url = ticks_url(sym, day)
         path = raw_tick_path(raw_root, sym, day)
 
+        cached = path.exists() and path.stat().st_size > 0
+        if cached:
+            log(f"[{gi}/{len(groups)}] {sym} {day} ({len(group)} events) tickfile cached")
+        else:
+            log(f"[{gi}/{len(groups)}] {sym} {day} ({len(group)} events) downloading ticks...")
+
+        t_start = time.time()
         try:
             ok = download_with_retry(url, path, timeout_s=int(args.timeout))
         except Exception as ex:  # noqa: BLE001
-            print(f"Download failed for {sym} {day}: {ex}")
+            log(f"Download failed for {sym} {day}: {ex}")
             missing_files += 1
-            # Still emit rows marking no data
             for e in group:
                 out_rows.append(
                     {
@@ -462,6 +477,17 @@ def main() -> int:
                     }
                 )
             continue
+
+        elapsed = time.time() - t_start
+        if ok and path.exists():
+            if cached:
+                log(f"    cache hit ({elapsed:.2f}s)")
+            else:
+                try:
+                    size_mb = path.stat().st_size / (1024 * 1024)
+                    log(f"    downloaded {size_mb:.1f} MB in {elapsed:.1f}s")
+                except Exception:
+                    pass
 
         if not ok or not path.exists():
             missing_files += 1
@@ -499,8 +525,9 @@ def main() -> int:
                     trigger_pips=float(args.trigger_pips),
                 )
             )
+            log(f"    analyzed {len(group)} events")
         except Exception as ex:  # noqa: BLE001
-            print(f"Decode/analyze failed for {sym} {day}: {ex}")
+            log(f"Decode/analyze failed for {sym} {day}: {ex}")
             missing_files += 1
 
     # Write per-event CSV
@@ -530,26 +557,38 @@ def main() -> int:
             w.writerow({k: r.get(k) for k in fieldnames})
 
     # Summary
-    run_values = [float(r["run_pips"]) for r in out_rows if r.get("had_ticks") and r.get("run_pips") is not None]
-    spread_values = [float(r["max_spread_pips"]) for r in out_rows if r.get("had_ticks") and r.get("max_spread_pips") is not None]
+    tick_rows = [r for r in out_rows if r.get("had_ticks")]
+    run_values_all = [float(r["run_pips"]) for r in tick_rows if r.get("run_pips") is not None]
+    triggered_rows = [r for r in tick_rows if int(r.get("dir") or 0) != 0]
+    run_values_triggered = [float(r["run_pips"]) for r in triggered_rows if r.get("run_pips") is not None]
+    spread_values = [float(r["max_spread_pips"]) for r in tick_rows if r.get("max_spread_pips") is not None]
 
     summary = {
         "generated_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "input": str(input_csv),
         "out_per_event": str(out_csv),
         "events": len(out_rows),
-        "groups": len(by_group),
+        "groups": len(groups),
         "missing_files": int(missing_files),
         "window_minutes": int(args.window_minutes),
         "pre_minutes": int(args.pre_minutes),
         "trigger_pips": float(args.trigger_pips),
-        "run_pips": {
-            "count": len(run_values),
-            "median": median(run_values) if run_values else 0.0,
-            "mean": mean(run_values) if run_values else 0.0,
-            "p75": percentile(run_values, 75) if run_values else 0.0,
-            "p90": percentile(run_values, 90) if run_values else 0.0,
-            "p95": percentile(run_values, 95) if run_values else 0.0,
+        "trigger_rate": (len(run_values_triggered) / len(run_values_all)) if run_values_all else 0.0,
+        "run_pips_all": {
+            "count": len(run_values_all),
+            "median": median(run_values_all) if run_values_all else 0.0,
+            "mean": mean(run_values_all) if run_values_all else 0.0,
+            "p75": percentile(run_values_all, 75) if run_values_all else 0.0,
+            "p90": percentile(run_values_all, 90) if run_values_all else 0.0,
+            "p95": percentile(run_values_all, 95) if run_values_all else 0.0,
+        },
+        "run_pips_triggered": {
+            "count": len(run_values_triggered),
+            "median": median(run_values_triggered) if run_values_triggered else 0.0,
+            "mean": mean(run_values_triggered) if run_values_triggered else 0.0,
+            "p75": percentile(run_values_triggered, 75) if run_values_triggered else 0.0,
+            "p90": percentile(run_values_triggered, 90) if run_values_triggered else 0.0,
+            "p95": percentile(run_values_triggered, 95) if run_values_triggered else 0.0,
         },
         "max_spread_pips": {
             "count": len(spread_values),
@@ -565,7 +604,7 @@ def main() -> int:
 
     print(f"Wrote per-event: {out_csv}")
     print(f"Wrote summary: {out_summary}")
-    print(f"Events analyzed: {len(out_rows)} (tick-backed: {len(run_values)})")
+    print(f"Events analyzed: {len(out_rows)} (tick-backed: {len(run_values_all)}, triggered: {len(run_values_triggered)})")
     return 0
 
 
