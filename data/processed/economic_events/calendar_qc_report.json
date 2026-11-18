@@ -165,8 +165,8 @@
     }
   ],
   "duplicate_rows": 12,
-  "filtered_rows": 4027,
-  "generated_utc": "2026-11-02T14:04:59.832698+00:00",
+  "filtered_rows": 3278,
+  "generated_utc": "2026-11-17T14:57:49.805957+00:00",
   "impact_prefix": "High",
   "impact_values": [
     [
@@ -186,10 +186,10 @@
       2400
     ]
   ],
-  "min_date_utc": "2020-01-01",
+  "min_date_utc": "2021-01-01",
   "missing_fields": [],
   "outputs": {
-    "filtered_extract": "data/processed/economic_events/economic_calendar_2020_high_impact.csv",
+    "filtered_extract": "data/processed/economic_events/economic_calendar_2021_high_impact.csv",
     "qc_report": "data/processed/economic_events/calendar_qc_report.json",
     "raw_manifest": "data/raw/economic_calendar/source_manifest.json"
   },

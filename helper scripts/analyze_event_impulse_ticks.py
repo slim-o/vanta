@@ -42,6 +42,7 @@ import json
 import lzma
 import random
 import socket
+import sqlite3
 import struct
 import time
 import urllib.error
@@ -165,12 +166,121 @@ class EventKey:
     symbol: str
 
 
+
+
+def impact_matches(impact: str, impact_filter: Optional[Sequence[str]]) -> bool:
+    if not impact_filter:
+        return True
+    imp = (impact or "").strip().lower()
+    for f in impact_filter:
+        ff = str(f or "").strip().lower()
+        if not ff:
+            continue
+        if imp == ff or imp.startswith(ff):
+            return True
+    return False
+
+
+def _pair_currencies(symbol: str) -> Tuple[str, str]:
+    s = symbol.upper().strip()
+    if len(s) < 6:
+        raise ValueError(f"Symbol too short to parse currencies: {symbol!r}")
+    return s[0:3], s[3:6]
+
+
+def load_event_keys_from_sqlite(
+    db_path: Path,
+    *,
+    events_start: Optional[dt.date],
+    events_end: Optional[dt.date],
+    symbols: Sequence[str],
+    impact_filter: Optional[Sequence[str]],
+    max_rows: Optional[int],
+) -> List[EventKey]:
+    """Load events from SQLite and expand them to (event, symbol) rows."""
+
+    if not db_path.exists():
+        raise FileNotFoundError(f"DB not found: {db_path}")
+
+    symbols_u = [s.upper().strip() for s in symbols if str(s).strip()]
+    if not symbols_u:
+        return []
+
+    cur_to_symbols: Dict[str, List[str]] = {}
+    for sym in symbols_u:
+        base, quote = _pair_currencies(sym)
+        cur_to_symbols.setdefault(base, []).append(sym)
+        cur_to_symbols.setdefault(quote, []).append(sym)
+
+    params: List[object] = []
+    where: List[str] = []
+
+    if events_start:
+        where.append("scheduled_at_utc >= ?")
+        params.append(f"{events_start.isoformat()}T00:00:00+00:00")
+    if events_end:
+        where.append("scheduled_at_utc <= ?")
+        params.append(f"{events_end.isoformat()}T23:59:59+00:00")
+
+    sql = "select id as event_id, scheduled_at_utc, currency, impact, event_name from events"
+    if where:
+        sql += " where " + " and ".join(where)
+    sql += " order by scheduled_at_utc asc"
+
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+
+    out: List[EventKey] = []
+    try:
+        for row in conn.execute(sql, params):
+            currency = str(row["currency"] or "").strip().upper()
+            if not currency:
+                continue
+
+            impact = str(row["impact"] or "").strip()
+            if not impact_matches(impact, impact_filter):
+                continue
+
+            ts_raw = str(row["scheduled_at_utc"] or "").strip()
+            if not ts_raw:
+                continue
+
+            t0 = dt.datetime.fromisoformat(ts_raw)
+            if t0.tzinfo is None:
+                t0 = t0.replace(tzinfo=dt.timezone.utc)
+            else:
+                t0 = t0.astimezone(dt.timezone.utc)
+
+            syms = cur_to_symbols.get(currency, [])
+            if not syms:
+                continue
+
+            for sym in syms:
+                out.append(
+                    EventKey(
+                        event_id=str(row["event_id"]),
+                        scheduled_at_utc=t0,
+                        currency=currency,
+                        impact=impact,
+                        event_name=str(row["event_name"] or "").strip(),
+                        symbol=sym,
+                    )
+                )
+                if max_rows and len(out) >= max_rows:
+                    return out
+    finally:
+        conn.close()
+
+    return out
+
+
 def load_event_keys(
     csv_path: Path,
     *,
     events_start: Optional[dt.date],
     events_end: Optional[dt.date],
     symbols_filter: Optional[set],
+    impact_filter: Optional[Sequence[str]],
     max_rows: Optional[int],
 ) -> List[EventKey]:
     out: List[EventKey] = []
@@ -195,12 +305,16 @@ def load_event_keys(
             if events_end and d > events_end:
                 continue
 
+
+            impact = str(row.get("impact", "")).strip()
+            if not impact_matches(impact, impact_filter):
+                continue
             out.append(
                 EventKey(
                     event_id=str(row.get("event_id", "")).strip(),
                     scheduled_at_utc=t0,
                     currency=str(row.get("currency", "")).strip().upper(),
-                    impact=str(row.get("impact", "")).strip(),
+                    impact=impact,
                     event_name=str(row.get("event_name", "")).strip(),
                     symbol=sym,
                 )
@@ -389,7 +503,15 @@ def analyze_day(
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Analyze post-event impulse using Dukascopy ticks (daily .bi5)")
-    p.add_argument("--input", default="data/processed/research/event_reactions_m1.csv", help="Input CSV (event_reactions_m1.csv)")
+    p.add_argument(
+        "--events-source",
+        choices=["csv", "sqlite"],
+        default="csv",
+        help="Where to load events from (csv=event_reactions_m1.csv, sqlite=data/vanta.sqlite)",
+    )
+    p.add_argument("--input", default="data/processed/research/event_reactions_m1.csv", help="Input CSV (used when --events-source csv)")
+    p.add_argument("--db", default="data/vanta.sqlite", help="SQLite DB path (used when --events-source sqlite)")
+    p.add_argument("--impact", nargs="*", default=[], help="Impact filter prefixes (e.g. High)")
     p.add_argument("--symbols", nargs="*", default=[], help="Only analyze these symbols")
     p.add_argument("--events-start", default=None, help="YYYY-MM-DD")
     p.add_argument("--events-end", default=None, help="YYYY-MM-DD")
@@ -416,18 +538,35 @@ def main() -> int:
     events_end = dt.date.fromisoformat(args.events_end) if args.events_end else None
     symbols_filter = set([s.upper() for s in args.symbols]) if args.symbols else None
     max_rows = int(args.max_rows) if int(args.max_rows) > 0 else None
+    impact_filter = [s for s in args.impact if str(s).strip()] if args.impact else None
 
-    keys = load_event_keys(
-        input_csv,
-        events_start=events_start,
-        events_end=events_end,
-        symbols_filter=symbols_filter,
-        max_rows=max_rows,
-    )
+    if str(args.events_source).lower() == "sqlite":
+        if not symbols_filter:
+            raise SystemExit("--symbols is required when --events-source sqlite")
+        db_path = Path(str(args.db))
+        keys = load_event_keys_from_sqlite(
+            db_path,
+            events_start=events_start,
+            events_end=events_end,
+            symbols=sorted(symbols_filter),
+            impact_filter=impact_filter,
+            max_rows=max_rows,
+        )
+        input_label = str(db_path)
+    else:
+        keys = load_event_keys(
+            input_csv,
+            events_start=events_start,
+            events_end=events_end,
+            symbols_filter=symbols_filter,
+            impact_filter=impact_filter,
+            max_rows=max_rows,
+        )
+        input_label = str(input_csv)
+
     if not keys:
         print("No events to analyze.")
         return 0
-
     # Group by (symbol, day)
     by_group: Dict[Tuple[str, dt.date], List[EventKey]] = {}
     for k in keys:
@@ -565,7 +704,7 @@ def main() -> int:
 
     summary = {
         "generated_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
-        "input": str(input_csv),
+        "input": str(input_label),
         "out_per_event": str(out_csv),
         "events": len(out_rows),
         "groups": len(groups),
@@ -610,3 +749,13 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+
+
+
+
+
+
+
+

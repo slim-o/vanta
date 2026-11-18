@@ -1,4 +1,4 @@
-"""Inspect the raw economic calendar dataset and produce a QC report.
+﻿"""Inspect the raw economic calendar dataset and produce a QC report.
 
 Phase 1 goals (from project overview):
 - Preserve raw source files unchanged (this script never edits them).
@@ -114,6 +114,11 @@ def main() -> int:
         help="Directory for derived (working) datasets and QC reports",
     )
     parser.add_argument(
+        "--out-extract",
+        default="",
+        help="Optional path for the filtered extract CSV (default keeps existing name)",
+    )
+    parser.add_argument(
         "--min-date",
         default="2020-01-01",
         help="Minimum UTC date for the working extract (YYYY-MM-DD)",
@@ -127,6 +132,7 @@ def main() -> int:
 
     raw_dir = Path(args.raw_dir)
     processed_dir = Path(args.processed_dir)
+    extract_path = Path(args.out_extract) if args.out_extract else (processed_dir / "economic_calendar_2020_high_impact.csv")
 
     if not raw_dir.exists():
         raise SystemExit(f"Raw dir not found: {raw_dir}")
@@ -306,7 +312,7 @@ def main() -> int:
         "filtered_rows": len(filtered_rows),
         "outputs": {
             "raw_manifest": str(raw_manifest_path.as_posix()),
-            "filtered_extract": str((processed_dir / "economic_calendar_2020_high_impact.csv").as_posix()),
+            "filtered_extract": str(extract_path.as_posix()),
             "qc_report": str((processed_dir / "calendar_qc_report.json").as_posix()),
         },
     }
@@ -318,7 +324,7 @@ def main() -> int:
 
     build_filtered_extract(
         rows=filtered_rows,
-        out_path=processed_dir / "economic_calendar_2020_high_impact.csv",
+        out_path=extract_path,
         fieldnames=[
             "DateTime",
             "DateTimeUTC",
@@ -336,7 +342,7 @@ def main() -> int:
 
     print("Raw manifest:", raw_manifest_path)
     print("QC report:", processed_dir / "calendar_qc_report.json")
-    print("Filtered extract:", processed_dir / "economic_calendar_2020_high_impact.csv")
+    print("Filtered extract:", extract_path)
     print("Filtered rows:", len(filtered_rows))
 
     return 0
@@ -344,4 +350,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
 
